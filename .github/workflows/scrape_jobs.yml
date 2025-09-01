@@ -6,7 +6,7 @@ on:
     - cron: "0 * * * *" # every hour
 
 jobs:
-  run:
+  scrape_and_send_jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # to commit state/sent.json
