@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Grad Jobs Update</title>
+  </head>
+  <body
+    style="
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f8fafc;
+      line-height: 1.6;
+    "
+  >
+    <!-- Added container with modern styling and better spacing -->
+    <div
+      style="
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+      "
+    >
+      <!-- Enhanced header with gradient background and better typography -->
+      <div
+        style="
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          padding: 32px 24px;
+          text-align: center;
+        "
+      >
+        <h1
+          style="
+            margin: 0;
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+          "
+        >
+          🎓 New Grad Opportunities
+        </h1>
+        <p
+          style="
+            margin: 8px 0 0 0;
+            color: #e2e8f0;
+            font-size: 16px;
+            opacity: 0.9;
+          "
+        >
+          Fresh opportunities since your last update
+        </p>
+      </div>
+
+      <!-- Added content wrapper with proper padding -->
+      <div style="padding: 24px">
+        <p
+          style="
+            color: #64748b;
+            margin: 0 0 24px 0;
+            font-size: 14px;
+            text-align: center;
+          "
+        >
+          <span
+            style="
+              background-color: #f1f5f9;
+              padding: 6px 12px;
+              border-radius: 20px;
+              display: inline-block;
+            "
+          >
+            📅 Generated: {{generated}}
+          </span>
+        </p>
+
+        <!-- Completely redesigned table with modern styling -->
+        <div
+          style="
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+          "
+        >
+          <table
+            style="
+              width: 100%;
+              border-collapse: collapse;
+              background-color: #ffffff;
+            "
+          >
+            <thead>
+              <tr
+                style="
+                  background: linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%);
+                "
+              >
+                <th
+                  style="
+                    padding: 16px 12px;
+                    text-align: left;
+                    font-weight: 600;
+                    color: #374151;
+                    font-size: 14px;
+                    border-bottom: 2px solid #e2e8f0;
+                  "
+                >
+                  🏢 Company
+                </th>
+                <th
+                  style="
+                    padding: 16px 12px;
+                    text-align: left;
+                    font-weight: 600;
+                    color: #374151;
+                    font-size: 14px;
+                    border-bottom: 2px solid #e2e8f0;
+                  "
+                >
+                  💼 Role
+                </th>
+                <th
+                  style="
+                    padding: 16px 12px;
+                    text-align: left;
+                    font-weight: 600;
+                    color: #374151;
+                    font-size: 14px;
+                    border-bottom: 2px solid #e2e8f0;
+                  "
+                >
+                  📍 Location
+                </th>
+                <th
+                  style="
+                    padding: 16px 12px;
+                    text-align: left;
+                    font-weight: 600;
+                    color: #374151;
+                    font-size: 14px;
+                    border-bottom: 2px solid #e2e8f0;
+                  "
+                >
+                  📅 Posted
+                </th>
+                <th
+                  style="
+                    padding: 16px 12px;
+                    text-align: left;
+                    font-weight: 600;
+                    color: #374151;
+                    font-size: 14px;
+                    border-bottom: 2px solid #e2e8f0;
+                  "
+                >
+                  🌍 Visa
+                </th>
+                <th
+                  style="
+                    padding: 16px 12px;
+                    text-align: center;
+                    font-weight: 600;
+                    color: #374151;
+                    font-size: 14px;
+                    border-bottom: 2px solid #e2e8f0;
+                  "
+                >
+                  🚀 Apply
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {{rows}}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Enhanced footer with better styling and call-to-action -->
+        <div
+          style="
+            margin-top: 32px;
+            padding: 20px;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+          "
+        >
+          <p
+            style="
+              margin: 0 0 8px 0;
+              color: #64748b;
+              font-size: 13px;
+              font-weight: 500;
+            "
+          >
+            📊 Data sourced from SimplifyJobs/New-Grad-Positions
+          </p>
+          <p style="margin: 0; color: #94a3b8; font-size: 12px">
+            This is a personal reminder service • Keep applying and stay
+            motivated! 💪
+          </p>
+        </div>
+
+        <!-- Added motivational footer -->
+        <div style="margin-top: 20px; text-align: center">
+          <p
+            style="margin: 0; color: #667eea; font-size: 14px; font-weight: 500"
+          >
+            ✨ Your next opportunity is just one application away!
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Added responsive styles for better mobile experience -->
+    <style>
+      @media only screen and (max-width: 600px) {
+        body {
+          padding: 10px !important;
+        }
+
+        .container {
+          border-radius: 8px !important;
+        }
+
+        table th,
+        table td {
+          padding: 12px 8px !important;
+          font-size: 13px !important;
+        }
+
+        h1 {
+          font-size: 24px !important;
+        }
+      }
+    </style>
+  </body>
+</html>
