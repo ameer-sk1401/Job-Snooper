@@ -13,7 +13,7 @@ SMTP_SERVER  = os.environ["SMTP_SERVER"]
 SMTP_PORT    = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER    = os.environ["SMTP_USER"]
 SMTP_PASS    = os.environ["SMTP_PASSWORD"]
-RECIPIENT    = os.environ["RECIPIENT"]  # single recipient (simple)
+RECIPIENT    = os.environ["RECIPIENTS_JSON"]  # single recipient (simple)
 
 def ensure_state_dir():
     Path("state").mkdir(parents=True, exist_ok=True)
