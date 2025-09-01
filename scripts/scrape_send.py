@@ -1,137 +1,172 @@
-import os, io, json, hashlib, datetime as dt, smtplib, ssl, requests
-import pandas as pd
-from markdown import markdown
+import os, io, re, json, hashlib, datetime as dt, smtplib, ssl, argparse
+import requests
+from bs4 import BeautifulSoup
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from bs4 import BeautifulSoup
 
-SOURCE_URL = os.getenv("SOURCE_URL", "https://github.com/SimplifyJobs/New-Grad-Positions/blob/dev/README.md")
-STATE_FILE = "state/sent.json"
-TEMPLATE_PATH = "templates/email.html"
+SOURCE_URL   = os.getenv("SOURCE_URL", "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md")
+STATE_FILE   = "state/sent.json"
 
-SMTP_SERVER = os.environ["SMTP_SERVER"]
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ["SMTP_USER"]
-SMTP_PASS = os.environ["SMTP_PASS"]
-# If RECIPIENT env var is set → single recipient fallback
-# Else load recipients.json from repo
-recipients = []
-if os.getenv("RECIPIENT"):
-    recipients = [os.environ["RECIPIENT"]]
-elif os.path.exists("recipients.json"):
-    with open("recipients.json", "r") as f:
-        data = json.load(f)
-        recipients = data.get("recipients", [])
+SMTP_SERVER  = os.environ["SMTP_SERVER"]
+SMTP_PORT    = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER    = os.environ["SMTP_USER"]
+SMTP_PASS    = os.environ["SMTP_PASS"]
 
-if not recipients:
-    raise RuntimeError("No recipients found. Set RECIPIENT env or create recipients.json")
+def load_recipients():
+    # recipients.json preferred; fallback to RECIPIENT env for single address
+    if os.path.exists("recipients.json"):
+        with open("recipients.json", "r") as f:
+            data = json.load(f)
+            recips = data.get("recipients", [])
+            if recips:
+                return recips
+    recip = os.getenv("RECIPIENT", "").strip()
+    if recip:
+        return [recip]
+    raise RuntimeError("No recipients found. Provide recipients.json or RECIPIENT env.")
 
-'''FILTER_LOCATION = os.getenv("FILTER_LOCATION", "").strip()  
-FILTER_SPONSORSHIP = os.getenv("FILTER_SPONSORSHIP", "").strip()  
-MAX_ROWS = int(os.getenv("MAX_ROWS", "80"))'''
+def ensure_state_dir():
+    os.makedirs("state", exist_ok=True)
 
 def load_state() -> set:
-    os.makedirs("state", exist_ok=True)
+    ensure_state_dir()
     if not os.path.exists(STATE_FILE):
         return set()
     with open(STATE_FILE, "r") as f:
         return set(json.load(f))
 
 def save_state(ids: set):
+    ensure_state_dir()
     with open(STATE_FILE, "w") as f:
         json.dump(sorted(list(ids)), f, indent=2)
-    
-def md_to_tables(md_text: str) -> list[pd.DataFrame]:
-    # Convert Markdown -> HTML -> DataFrames
-    html = markdown(md_text, output_format="html")
-    soup = BeautifulSoup(html, "lxml")
-    return pd.read_html(io.StringIO(str(soup)))
 
-def stable_row_id(row: pd.Series) -> str:
-    # Deterministic ID based on common columns
-    cols = [c for c in ["Company", "Role", "Location", "Application", "Date Posted", "Sponsorship"] if c in row.index]
-    key = "|".join(str(row.get(c, "")).strip() for c in cols)
+def fetch_markdown() -> str:
+    r = requests.get(SOURCE_URL, timeout=30)
+    r.raise_for_status()
+    return r.text
+
+def parse_age_to_minutes(age_text: str) -> int:
+    """
+    Convert strings like '0d', '2d', '5h', '30m', '1w' to minutes.
+    Unknown formats get a large number to push them to the end.
+    Smaller minutes = newer.
+    """
+    s = (age_text or "").strip().lower()
+    if not s: return 10**9
+    m = re.match(r"^(\d+)\s*([wdhm])$", s)
+    if not m:
+        # sometimes they use '0d' or '1d'; handle emojis/whitespace etc.
+        digits = re.findall(r"\d+", s)
+        unit   = 'd' if 'd' in s else ('h' if 'h' in s else ('m' if 'm' in s else ('w' if 'w' in s else 'd')))
+        if digits:
+            m = (int(digits[0]), unit)
+        else:
+            return 10**9
+        val, u = m
+    else:
+        val, u = int(m.group(1)), m.group(2)
+
+    if u == 'm': return val
+    if u == 'h': return val * 60
+    if u == 'd': return val * 60 * 24
+    if u == 'w': return val * 60 * 24 * 7
+    return 10**9
+
+def extract_tables_with_links(md_text: str):
+    """
+    Convert markdown to HTML, then parse tables and extract rows keeping link hrefs.
+    We pick tables where headers include Company & (Role or Position).
+    """
+    # Let GitHub render-like markdown via a lightweight conversion: the README is already markdown;
+    # GitHub's raw is markdown text. We'll push it through a minimal converter by using
+    # pandoc-like? Not available here. Instead, GitHub tables in markdown are simple enough to be
+    # interpreted by BeautifulSoup if we first create a dummy HTML wrapper and let GitHub-style
+    # tables persist? Simpler: use a markdown-to-HTML endpoint? Not allowed. We'll do a quick
+    # approach: many tables are already pipe-formatted. We'll rely on a tiny fallback:
+    # Use Python-Markdown would be ideal, but we removed it to keep deps slim.
+    # We'll include a minimal fallback: if we see "<table" already (sometimes repo has HTML tables),
+    # parse directly. Otherwise, we do a very small naive markdown table to HTML converter for links.
+    # To avoid complexity here, we’ll actually use BeautifulSoup on the markdown turned to HTML by
+    # GitHub-like library; since we don't have it here, we'll include bs4 + lxml and a tiny helper.
+    try:
+        from markdown import markdown
+        html = markdown(md_text, output_format="html")
+    except Exception:
+        # basic fallback, unlikely to be used in Actions because we can include 'markdown' in requirements
+        html = "<html><body><pre>" + md_text + "</pre></body></html>"
+
+    soup = BeautifulSoup(html, "lxml")
+    tables = soup.find_all("table")
+    results = []
+    for table in tables:
+        # headers
+        ths = [th.get_text(strip=True) for th in table.find_all("th")]
+        hdrs = [h.title() for h in ths]
+        if not hdrs:
+            continue
+        if "Company" not in hdrs or (("Role" not in hdrs) and ("Position" not in hdrs)):
+            continue
+
+        # normalize header indexes
+        col_idx = {h: i for i, h in enumerate(hdrs)}
+        # Accept either 'Role' or 'Position' as Role
+        role_key = "Role" if "Role" in col_idx else ("Position" if "Position" in col_idx else None)
+
+        # rows
+        for tr in table.find("tbody").find_all("tr"):
+            tds = tr.find_all(["td", "th"])
+            if not tds:
+                continue
+
+            def td_text(name, default=""):
+                if name in col_idx and col_idx[name] < len(tds):
+                    return tds[col_idx[name]].get_text(" ", strip=True)
+                return default
+
+            # Application URL: take the first <a href> from that cell, if present
+            app_url = ""
+            if "Application" in col_idx and col_idx["Application"] < len(tds):
+                first_link = tds[col_idx["Application"]].find("a", href=True)
+                if first_link:
+                    app_url = first_link["href"].strip()
+
+            row = {
+                "Company":   td_text("Company"),
+                "Role":      td_text(role_key) if role_key else "",
+                "Location":  td_text("Location"),
+                "Date Posted": td_text("Date Posted"),
+                "Sponsorship": td_text("Sponsorship"),
+                "Application": app_url,
+                "Age":       td_text("Age"),
+            }
+            results.append(row)
+    return results
+
+def job_id(row: dict) -> str:
+    key = "|".join([
+        row.get("Company","").strip(),
+        row.get("Role","").strip(),
+        row.get("Location","").strip(),
+        row.get("Application","").strip()
+    ])
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
-def fetch_jobs_df() -> pd.DataFrame:
-    resp = requests.get(SOURCE_URL, timeout=30)
-    resp.raise_for_status()
-    md = resp.text
-
-    tables = md_to_tables(md)
-    candidates = []
-    for t in tables:
-        t.columns = [str(c).strip().title() for c in t.columns]
-        cols = set(t.columns)
-        if {"Company", "Role"}.issubset(cols) or {"Company", "Position"}.issubset(cols):
-            if "Position" in t.columns and "Role" not in t.columns:
-                t.rename(columns={"Position": "Role"}, inplace=True)
-            if "Locations" in t.columns and "Location" not in t.columns:
-                t.rename(columns={"Locations": "Location"}, inplace=True)
-            candidates.append(t)
-
-    if not candidates:
-        raise RuntimeError("No job tables found; upstream schema may have changed.")
-
-    df = pd.concat(candidates, ignore_index=True)
-
-    # Canonical subset if present
-    keep_order = ["Company","Role","Location","Application","Date Posted","Sponsorship","Notes"]
-    present = [c for c in keep_order if c in df.columns]
-    df = df[present]
-
-    # Normalize to strings
-    for c in df.columns:
-        df[c] = df[c].astype(str).fillna("").str.strip()
-
-    # Add stable IDs
-    df["ID"] = df.apply(stable_row_id, axis=1)
-    return df
-
-def render_html(rows_df: pd.DataFrame) -> str:
-    if os.path.exists(TEMPLATE_PATH):
-        with open(TEMPLATE_PATH, "r") as f:
-            template = f.read()
-    else:
-        # Minimal inline fallback
-        template = """
-        <html><body>
-          <h2>New Grad Jobs — New since last run</h2>
-          <p><small>Generated: {{generated}}</small></p>
-          <table border="1" cellpadding="6" cellspacing="0">
-            <thead>
-              <tr>
-                <th>Company</th><th>Role</th><th>Location</th>
-                <th>Date Posted</th><th>Sponsorship</th><th>Application</th>
-              </tr>
-            </thead>
-            <tbody>
-              {{rows}}
-            </tbody>
-          </table>
-          <p><small>Source: SimplifyJobs/New-Grad-Positions (personal reminder only).</small></p>
-        </body></html>
-        """
-
-    def linkify(u: str) -> str:
-        return f'<a href="{u}">Apply</a>' if u.startswith("http") else (u or "-")
-
-    tr = []
-    for _, r in rows_df.iterrows():
-        tr.append(f"""
+def render_rows_html(rows: list[dict]) -> str:
+    def a(url: str) -> str:
+        return f'<a href="{url}">Apply</a>' if url.startswith("http") else "-"
+    trs = []
+    for r in rows:
+        trs.append(f"""
         <tr>
           <td>{r.get('Company','')}</td>
           <td>{r.get('Role','')}</td>
           <td>{r.get('Location','')}</td>
           <td>{r.get('Date Posted','')}</td>
           <td>{r.get('Sponsorship','')}</td>
-          <td>{linkify(r.get('Application',''))}</td>
+          <td>{a(r.get('Application',''))}</td>
+          <td>{r.get('Age','')}</td>
         </tr>""")
-
-    html_rows = "\n".join(tr) if tr else '<tr><td colspan="6">No new jobs found.</td></tr>'
-    return (template
-            .replace("{{generated}}", dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
-            .replace("{{rows}}", html_rows))
+    return "\n".join(trs) if trs else '<tr><td colspan="7">No rows.</td></tr>'
 
 def send_email(subject: str, html_body: str, recipients: list[str]):
     msg = MIMEMultipart("alternative")
@@ -147,24 +182,76 @@ def send_email(subject: str, html_body: str, recipients: list[str]):
         server.sendmail(SMTP_USER, recipients, msg.as_string())
 
 def main():
-    prev_ids = load_state()
-    df = fetch_jobs_df()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--init", action="store_true", help="Seed first 50 newest jobs into state without emailing.")
+    args = parser.parse_args()
 
-    # New = rows we haven't emailed before
-    new_df = df[~df["ID"].isin(prev_ids)].copy()
+    recipients = load_recipients()
+    md = fetch_markdown()
+    rows = extract_tables_with_links(md)
 
-    if new_df.empty:
-        print("No new jobs; skipping email.")
+    # Sort by "newest" using Age (smallest minutes first)
+    for r in rows:
+        r["_age_minutes"] = parse_age_to_minutes(r.get("Age",""))
+        r["ID"] = job_id(r)
+    rows.sort(key=lambda r: (r["_age_minutes"], r["Company"], r["Role"]))
+
+    state = load_state()
+
+    if args.init:
+        # Seed the first 50 newest rows into state and exit
+        seed = rows[:50]
+        new_ids = state.union({r["ID"] for r in seed})
+        save_state(new_ids)
+        print(f"Seeded {len(seed)} jobs into state. No email sent.")
         return
 
-    html = render_html(new_df)
-    subject = f"[Jobs Digest] {len(new_df)} new roles from SimplifyJobs"
+    # Normal (hourly) mode -> only send NEW jobs
+    new_rows = [r for r in rows if r["ID"] not in state]
+
+    now = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    if not new_rows:
+        subject = "[Jobs Digest] No new jobs since last check"
+        html = f"""
+        <html><body style="font-family:Arial,sans-serif;">
+          <h3>No new jobs since last check</h3>
+          <p><small>{now}</small></p>
+          <p>This is an automated reminder based on SimplifyJobs/New-Grad-Positions (personal use only).</p>
+        </body></html>
+        """
+        send_email(subject, html, recipients)
+        print("No new jobs; 'no new' email sent.")
+        return
+
+    # Build HTML email with just the new rows (show newest first)
+    table_rows = render_rows_html(new_rows)
+    html = f"""
+    <html>
+    <body style="font-family:Arial,sans-serif;">
+      <h2>New Grad Jobs — {len(new_rows)} new since last run</h2>
+      <p><small>Generated: {now}</small></p>
+      <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%;">
+        <thead style="background:#f2f2f2;">
+          <tr>
+            <th>Company</th><th>Role</th><th>Location</th>
+            <th>Date Posted</th><th>Sponsorship</th><th>Application</th><th>Age</th>
+          </tr>
+        </thead>
+        <tbody>
+          {table_rows}
+        </tbody>
+      </table>
+      <p style="margin-top:12px;color:#777;font-size:12px;">Source: SimplifyJobs/New-Grad-Positions (personal reminder only).</p>
+    </body>
+    </html>
+    """
+    subject = f"[Jobs Digest] {len(new_rows)} new roles from SimplifyJobs"
     send_email(subject, html, recipients)
 
-    # Persist new IDs
-    new_ids = prev_ids.union(set(new_df["ID"].tolist()))
+    # Update state so we won't resend the same rows next time
+    new_ids = state.union({r["ID"] for r in new_rows})
     save_state(new_ids)
-    print(f"Sent {len(new_df)} rows; state updated.")
+    print(f"Sent {len(new_rows)} new jobs; state updated.")
 
 if __name__ == "__main__":
     main()
