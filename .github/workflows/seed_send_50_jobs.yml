@@ -31,7 +31,7 @@ jobs:
           RECIPIENT: ${{ secrets.RECIPIENT }}
           SOURCE_URL: https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md
         run: |
-          python scripts/seed_send_latest50.py
+          python scripts/seed_send_50_jobs.py
 
       - name: Commit state (if changed)
         run: |
