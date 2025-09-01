@@ -1,9 +1,9 @@
-name: Jobs Scraper → Email (SMTP)
+name: Jobs Scraper -> Email (SMTP)
 
 on:
   workflow_dispatch: # manual runs always send latest 50 and save their IDs
   schedule:
-    - cron: "0 * * * *" # every hour
+    - cron: "0 * * * *" # every hour (UTC)
 
 jobs:
   scrape_and_send_jobs:
@@ -11,9 +11,11 @@ jobs:
     permissions:
       contents: write # to commit state/sent.json
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -22,11 +24,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Optional: keep real addresses out of a public repo
+      # Optional: write recipients.json from a GitHub secret (for multiple recipients)
+      # We do the check INSIDE the shell (avoid step-level if with secrets).
       - name: Write recipients.json from secret (optional)
-        if: ${{ secrets.RECIPIENTS_JSON != '' }}
         run: |
-          echo '${{ secrets.RECIPIENTS_JSON }}' > recipients.json
+          if [ -n "${{ secrets.RECIPIENTS_JSON }}" ]; then
+            echo '${{ secrets.RECIPIENTS_JSON }}' > recipients.json
+            echo "recipients.json written from secret."
+          else
+            echo "RECIPIENTS_JSON not set; skipping."
+          fi
 
       - name: Scrape & send (manual = latest 50; cron = only new)
         env:
@@ -34,10 +41,9 @@ jobs:
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          RECIPIENT: ${{ secrets.RECIPIENT }}
+          RECIPIENT: ${{ secrets.RECIPIENT }} # optional single-recipient fallback
           SOURCE_URL: "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md"
         run: |
-          # Detect if this is a manual run
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             python scripts/scrape_send.py --manual
           else
