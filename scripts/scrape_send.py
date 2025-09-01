@@ -159,7 +159,7 @@ def main():
 
     html = render_html(new_df)
     subject = f"[Jobs Digest] {len(new_df)} new roles from SimplifyJobs"
-    send_email(subject,recipients, html)
+    send_email(subject, html, recipients)
 
     # Persist new IDs
     new_ids = prev_ids.union(set(new_df["ID"].tolist()))
