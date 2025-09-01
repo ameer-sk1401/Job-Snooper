@@ -31,7 +31,7 @@ jobs:
           RECIPIENT: ${{ secrets.RECIPIENT }}
           SOURCE_URL: https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md
         run: |
-          python scripts/hourly_diff_send.py
+          python scripts/hourly_diff_jobs.py
 
       - name: Commit state (if changed)
         run: |
