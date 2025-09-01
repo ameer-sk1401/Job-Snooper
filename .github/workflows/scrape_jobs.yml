@@ -26,7 +26,7 @@ jobs:
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }} # e.g. smtp.gmail.com
           SMTP_PORT: ${{ secrets.SMTP_PORT }} # e.g. 587
           SMTP_USER: ${{ secrets.SMTP_USER }} # sender email
-          SMTP_PASS: ${{ secrets.SMTP_PASS }} # app password
+          SMTP_PASS: ${{ secrets.SMTP_PASSWORD }} # app password
           SOURCE_URL: "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md"
         run: |
           python scripts/scrape_send.py
