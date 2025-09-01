@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import argparse
 
 SOURCE_URL   = os.getenv("SOURCE_URL", "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md")
 STATE_FILE   = "state/sent.json"
@@ -183,33 +184,59 @@ def send_email(subject: str, html_body: str, recipients: list[str]):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--init", action="store_true", help="Seed first 50 newest jobs into state without emailing.")
+    parser.add_argument(
+        "--manual",
+        action="store_true",
+        help="Manual run: email the latest 50 newest jobs and save their IDs to state"
+    )
     args = parser.parse_args()
 
     recipients = load_recipients()
     md = fetch_markdown()
     rows = extract_tables_with_links(md)
 
-    # Sort by "newest" using Age (smallest minutes first)
+    # Sort by "newest" using Age (smaller minutes = newer)
     for r in rows:
-        r["_age_minutes"] = parse_age_to_minutes(r.get("Age",""))
+        r["_age_minutes"] = parse_age_to_minutes(r.get("Age", ""))
         r["ID"] = job_id(r)
     rows.sort(key=lambda r: (r["_age_minutes"], r["Company"], r["Role"]))
 
     state = load_state()
+    now = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
-    if args.init:
-        # Seed the first 50 newest rows into state and exit
-        seed = rows[:50]
-        new_ids = state.union({r["ID"] for r in seed})
+    # ----- Manual run: send latest 50 and save their IDs -----
+    if args.manual:
+        latest_50 = rows[:50]
+        table_rows = render_rows_html(latest_50)
+        html = f"""
+        <html><body style="font-family:Arial,sans-serif;">
+          <h2>Latest 50 jobs (manual run)</h2>
+          <p><small>Generated: {now}</small></p>
+          <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%;">
+            <thead style="background:#f2f2f2;">
+              <tr>
+                <th>Company</th><th>Role</th><th>Location</th>
+                <th>Date Posted</th><th>Sponsorship</th><th>Application</th><th>Age</th>
+              </tr>
+            </thead>
+            <tbody>
+              {table_rows}
+            </tbody>
+          </table>
+          <p style="margin-top:12px;color:#777;font-size:12px;">Source: SimplifyJobs/New-Grad-Positions (personal reminder only).</p>
+        </body></html>
+        """
+        send_email("[Jobs Digest] Latest 50 (manual run)", html, recipients)
+
+        # Save their IDs so hourly runs don't resend them
+        new_ids = state.union({r["ID"] for r in latest_50})
         save_state(new_ids)
-        print(f"Seeded {len(seed)} jobs into state. No email sent.")
+        print(f"Manual run: emailed latest 50; state now has {len(new_ids)} IDs.")
         return
 
-    # Normal (hourly) mode -> only send NEW jobs
+    # ----- Hourly run: only send NEW jobs vs state -----
     new_rows = [r for r in rows if r["ID"] not in state]
 
-    now = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     if not new_rows:
         subject = "[Jobs Digest] No new jobs since last check"
         html = f"""
