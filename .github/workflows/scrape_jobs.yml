@@ -57,3 +57,16 @@ jobs:
           git add state/sent.json || true
           git commit -m "chore: update sent state" || echo "No changes"
           git push || echo "No changes"
+          
+      - name: Validate required secrets
+        run: |
+          fail=0
+          [ -z "${{ secrets.SMTP_SERVER }}" ] && echo "::error::Missing SMTP_SERVER" && fail=1
+          [ -z "${{ secrets.SMTP_PORT }}" ]   && echo "::error::Missing SMTP_PORT" && fail=1
+          [ -z "${{ secrets.SMTP_USER }}" ]   && echo "::error::Missing SMTP_USER" && fail=1
+          [ -z "${{ secrets.SMTP_PASS }}" ]   && echo "::error::Missing SMTP_PASS" && fail=1
+          if [ -z "${{ secrets.RECIPIENT }}" ] && [ -z "${{ secrets.RECIPIENTS_JSON }}" ]; then
+            echo "::error::Provide RECIPIENT or RECIPIENTS_JSON"
+            fail=1
+          fi
+          exit $fail
