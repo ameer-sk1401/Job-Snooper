@@ -1,11 +1,12 @@
 name: Jobs Scraper → Email (SMTP)
+
 on:
-  workflow_dispatch:
+  workflow_dispatch: # manual runs always send latest 50 and save their IDs
   schedule:
-    - cron: "15 6 * * *" # daily 06:15 UTC
+    - cron: "0 * * * *" # every hour
 
 jobs:
-  scrape_and_email:
+  run:
     runs-on: ubuntu-latest
     permissions:
       contents: write # to commit state/sent.json
@@ -21,15 +22,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Scrape & send email
+      # Optional: keep real addresses out of a public repo
+      - name: Write recipients.json from secret (optional)
+        if: ${{ secrets.RECIPIENTS_JSON != '' }}
+        run: |
+          echo '${{ secrets.RECIPIENTS_JSON }}' > recipients.json
+
+      - name: Scrape & send (manual = latest 50; cron = only new)
         env:
-          SMTP_SERVER: ${{ secrets.SMTP_SERVER }} # e.g. smtp.gmail.com
-          SMTP_PORT: ${{ secrets.SMTP_PORT }} # e.g. 587
-          SMTP_USER: ${{ secrets.SMTP_USER }} # sender email
-          SMTP_PASS: ${{ secrets.SMTP_PASSWORD }} # app password
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          RECIPIENT: ${{ secrets.RECIPIENT }}
           SOURCE_URL: "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md"
         run: |
-          python scripts/scrape_send.py
+          # Detect if this is a manual run
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python scripts/scrape_send.py --manual
+          else
+            python scripts/scrape_send.py
+          fi
 
       - name: Commit state (if changed)
         run: |
