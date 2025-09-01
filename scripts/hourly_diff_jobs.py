@@ -12,7 +12,7 @@ TEMPLATE_PATH = os.getenv("TEMPLATE_PATH", "templates/email.html")
 SMTP_SERVER  = os.environ["SMTP_SERVER"]
 SMTP_PORT    = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER    = os.environ["SMTP_USER"]
-SMTP_PASS    = os.environ["SMTP_PASS"]
+SMTP_PASS    = os.environ["SMTP_PASSWORD"]
 RECIPIENT    = os.environ["RECIPIENT"]  # single recipient
 
 def ensure_state_dir():
