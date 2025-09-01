@@ -13,7 +13,18 @@ SMTP_SERVER = os.environ["SMTP_SERVER"]
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ["SMTP_USER"]
 SMTP_PASS = os.environ["SMTP_PASS"]
-RECIPIENT  = os.environ["RECIPIENT"]
+# If RECIPIENT env var is set → single recipient fallback
+# Else load recipients.json from repo
+recipients = []
+if os.getenv("RECIPIENT"):
+    recipients = [os.environ["RECIPIENT"]]
+elif os.path.exists("recipients.json"):
+    with open("recipients.json", "r") as f:
+        data = json.load(f)
+        recipients = data.get("recipients", [])
+
+if not recipients:
+    raise RuntimeError("No recipients found. Set RECIPIENT env or create recipients.json")
 
 '''FILTER_LOCATION = os.getenv("FILTER_LOCATION", "").strip()  
 FILTER_SPONSORSHIP = os.getenv("FILTER_SPONSORSHIP", "").strip()  
@@ -122,18 +133,18 @@ def render_html(rows_df: pd.DataFrame) -> str:
             .replace("{{generated}}", dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
             .replace("{{rows}}", html_rows))
 
-def send_email(subject: str, html_body: str):
+def send_email(subject: str, html_body: str, recipients: list[str]):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = SMTP_USER
-    msg["To"] = RECIPIENT
+    msg["To"] = ", ".join(recipients)
     msg.attach(MIMEText(html_body, "html"))
 
     context = ssl.create_default_context()
     with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
         server.starttls(context=context)
         server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(SMTP_USER, RECIPIENT, msg.as_string())
+        server.sendmail(SMTP_USER, recipients, msg.as_string())
 
 def main():
     prev_ids = load_state()
