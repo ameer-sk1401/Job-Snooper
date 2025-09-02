@@ -6,7 +6,7 @@ on:
     - cron: "15 6 * * *" # daily 06:15 UTC
 
 jobs:
-  run:
+  scrape_jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # to commit state/sent.json
