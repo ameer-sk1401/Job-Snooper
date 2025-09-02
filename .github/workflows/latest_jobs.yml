@@ -1,0 +1,53 @@
+name: Hourly Latest-50 Diff (Triggered)
+
+on:
+  # run this manually too, if you want
+  schedule:
+    - cron: "0 * * * *" # every hour at minute 0
+
+  # dependency: run after the seed workflow completes
+  workflow_run:
+    workflows: ["Jobs Scraper → Email (SMTP)"] # must match Workflow A's 'name'
+    types: [completed]
+
+concurrency:
+  group: jobs-digest
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  diff_latest50:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 lxml markdown
+
+      - name: Run latest-50 diff and email
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SOURCE_URL: https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md
+          LATEST_TEMPLATE_PATH: templates/latest_jobs.html
+        run: |
+          python scripts/hourly_latest50_diff_send.py
+
+      - name: Commit state (if changed)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/sent.json || true
+          git commit -m "chore: update last-50 state (diff)" || echo "No changes"
+          git push || true
