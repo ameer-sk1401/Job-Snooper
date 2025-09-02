@@ -26,7 +26,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install deps
         run: |
@@ -42,7 +42,7 @@ jobs:
           SOURCE_URL: https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md
           LATEST_TEMPLATE_PATH: templates/latest_jobs.html
         run: |
-          python scripts/hourly_latest50_diff_send.py
+          python scripts/hourly_jobs.py
 
       - name: Commit state (if changed)
         run: |
