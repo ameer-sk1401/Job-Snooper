@@ -38,7 +38,7 @@ jobs:
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_PASS: ${{ secrets.SMTP_PASSWORD }}
           SOURCE_URL: https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md
           LATEST_TEMPLATE_PATH: templates/latest_jobs.html
         run: |
