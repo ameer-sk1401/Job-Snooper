@@ -30,10 +30,10 @@ This workflow scrapes the latest job tables, emails updates using HTML templates
 
     .github/
     workflows/
-        seed_latest50.yml           # Daily/manual workflow (emails latest 50)
-        hourly_latest50_diff.yml    # Hourly workflow (emails only new jobs)
+        scraper_jobs.yml           # Daily/manual workflow (emails latest 50)
+        latest_jobs.yml    # Hourly workflow (emails only new jobs)
     scripts/
-        seed_send_50_jobs.py          # Script: fetch + send latest 50
+        scrape_and_send_jobs.py          # Script: fetch + send latest 50
         hourly_jobs.py  # Script: hourly diff sender
     state/
         sent.json                     # Stores last 50 job IDs (committed after runs)
@@ -69,44 +69,20 @@ Add these in **GitHub → Repo → Settings → Secrets and variables → Action
 ⸻
 
 2. Templates
-	•	Place your email template at templates/latest_jobs.html.
+	•	Place your email template at templates/*.
 Must contain placeholders:
 	•	{{title}}
 	•	{{generated}}
 	•	{{rows}}
 
-Example minimal template:
-
-<!doctype html>
-<html>
-  <body style="font-family:Arial,sans-serif;">
-    <h2>{{title}}</h2>
-    <p><small>Generated: {{generated}}</small></p>
-    <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%;">
-      <thead>
-        <tr>
-          <th>Company</th><th>Role</th><th>Location</th>
-          <th>Date Posted</th><th>Sponsorship</th><th>Application</th><th>Age</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{rows}}
-      </tbody>
-    </table>
-  </body>
-</html>
-
-Optional: add templates/no_new.html with a {{generated}} placeholder.
-
-⸻
 
 3. Workflows
 
-Daily Seed Workflow (.github/workflows/seed_latest50.yml)
+Daily Seed Workflow (.github/workflows/scraper_jobs.yml)
 	•	Runs once a day at 09:00 UTC (or manually from Actions tab).
 	•	Fetches the latest 50 jobs, emails them, and saves IDs.
 
-Hourly Diff Workflow (.github/workflows/hourly_latest50_diff.yml)
+Hourly Diff Workflow (.github/workflows/latest_jobs.yml)
 	•	Runs every hour (or manually).
 	•	Triggered automatically after the seed workflow completes.
 	•	Sends only new jobs among the latest 50.
@@ -150,3 +126,4 @@ python scripts/hourly_latest50_diff_send.py
 
 This project is for personal use only.
 Jobs data comes from SimplifyJobs/New-Grad-Positions.
+
