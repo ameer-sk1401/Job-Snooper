@@ -101,22 +101,22 @@ Hourly Diff Workflow (.github/workflows/latest_jobs.yml)
 
 You can run scripts locally for testing:
 
-# install deps
+### install deps
 pip install requests beautifulsoup4 lxml markdown
 
-# set env vars
+### set env vars
 export SMTP_SERVER="smtp.gmail.com"
 export SMTP_PORT=587
 export SMTP_USER="your_email@gmail.com"
 export SMTP_PASS="your_app_password"
 
-# prepare recipients.json
+### prepare recipients.json
 echo '{"recipients":["you@example.com"]}' > recipients.json
 
-# run seed (latest 50)
+### run seed (latest 50)
 python scripts/seed_send_50_jobs.py
 
-# run hourly diff
+### run hourly diff
 python scripts/hourly_latest50_diff_send.py
 
 
@@ -126,6 +126,7 @@ python scripts/hourly_latest50_diff_send.py
 
 This project is for personal use only.
 Jobs data comes from SimplifyJobs/New-Grad-Positions.
+
 
 
 
