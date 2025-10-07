@@ -57,7 +57,7 @@ Add these in **GitHub → Repo → Settings → Secrets and variables → Action
 - `SMTP_PASS` – your SMTP password (or Gmail App Password)  
 - `RECIPIENTS_JSON` – JSON string of recipients, e.g.:
 
-```json
+	```json
         {
           "recipients": [
             "you@example.com",
@@ -126,4 +126,5 @@ python scripts/hourly_latest50_diff_send.py
 
 This project is for personal use only.
 Jobs data comes from SimplifyJobs/New-Grad-Positions.
+
 
