@@ -1,23 +1,3 @@
-
-"""
-Hourly latest-50 diff mailer
-
-- Scrapes the New-Grad-Positions README tables.
-- Keeps Application links.
-- Takes only the latest 50 rows.
-- Sends ONLY the rows that are not present in state/sent.json (which stores the previous run's 50 IDs).
-- If no new rows, sends a short "no new jobs" email.
-- Replaces state/sent.json with the current 50 IDs.
-
-Requires:
-  - recipients.json at repo root: {"recipients": ["you@example.com", "friend@example.com"]}
-  - SMTP_* env vars (server, port, user, pass)
-  - Optional: LATEST_TEMPLATE_PATH (defaults to templates/latest_jobs.html)
-
-pip deps:
-  requests, beautifulsoup4, lxml, markdown
-"""
-
 import os, re, json, hashlib, datetime as dt, smtplib, ssl, requests
 from pathlib import Path
 from bs4 import BeautifulSoup
