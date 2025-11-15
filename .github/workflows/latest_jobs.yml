@@ -2,8 +2,8 @@ name: Hourly Latest-50 Diff (Triggered)
 
 on:
   # run this manually too, if you want
-  schedule:
-    - cron: "0 */3 * * *" # every 3 hours at minute 0
+  #schedule:
+    #- cron: "0 */3 * * *" # every 3 hours at minute 0
 
   # dependency: run after the seed workflow completes
   workflow_run:
