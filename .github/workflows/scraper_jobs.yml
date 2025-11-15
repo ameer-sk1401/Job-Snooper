@@ -2,8 +2,8 @@ name: Jobs Scraper → Email (SMTP)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 11 * * *" # daily 06:00 AM 
+  #schedule:
+    #- cron: "0 11 * * *" # daily 06:00 AM 
 
 concurrency:
   group: jobs-digest-seed
